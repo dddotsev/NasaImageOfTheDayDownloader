@@ -12,13 +12,13 @@ from progressbar import ProgressBar
 MAIN_URL = 'https://apod.nasa.gov/apod/'
 MAIN_PAGE = 'archivepix.html'
 
-DOWNLOAD_PATH = 'Images_/'
+DOWNLOAD_PATH = 'Images/'
 DOWNLOADED_LIST_FILE_PATH = 'downloaded.txt'
+IMAGE_NOT_FOUND_FILE_PATH = 'image_not_found.txt'
 
 LOADED_IMAGE_LINKS_FILE_PATH = 'loaded_links.json'
 
-IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'bmp', 'png']
-# IMAGE_EXTENSIONS = ['tiff', 'tif', 'gif']
+IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'bmp', 'png', 'tiff', 'tif', 'gif']
 
 REQUEST_REPEAT_COUNT = 15
 REQUEST_REPEAT_INITIAL_SECONDS = 5
@@ -44,7 +44,7 @@ def get_image_links(image_pages):
     progressbar = ProgressBar(0, len(image_pages))
 
     image_links = []
-    downloaded_list_file = open(DOWNLOADED_LIST_FILE_PATH, "a")
+    image_not_found_file = open(IMAGE_NOT_FOUND_FILE_PATH, "a")
 
     bar_progress = 0
     for page in image_pages:
@@ -71,14 +71,14 @@ def get_image_links(image_pages):
                     continue
 
         if not found_image:
-            downloaded_list_file.write('\n')
-            downloaded_list_file.write(page)
-            downloaded_list_file.flush()
+            image_not_found_file.write('\n')
+            image_not_found_file.write(page)
+            image_not_found_file.flush()
 
         bar_progress += 1
         progressbar.update(bar_progress)
 
-    downloaded_list_file.close()
+    image_not_found_file.close()
 
     return image_links
 
@@ -123,26 +123,39 @@ def get_downloaded():
     return downloaded
 
 
-def exclude_downloaded(pages):
+def get_not_found():
+    image_not_found_file = open(IMAGE_NOT_FOUND_FILE_PATH, "r")
+
+    not_found = []
+    for line in image_not_found_file:
+        not_found.append(line.strip())
+
+    return not_found
+
+
+def exclude(pages):
     downloaded = get_downloaded()
+    not_found = get_not_found()
     not_downloaded = []
 
     for page in pages:
-        if page not in downloaded and not page == '' and not page.isspace():
+        if page not in downloaded and page not in not_found and not page == '' and not page.isspace():
             not_downloaded.append(page)
 
     return not_downloaded
 
 
-def exclude_downloaded_from_links(links):
+def exclude_from_links(links):
     downloaded = get_downloaded()
+    not_found = get_not_found()
     not_downloaded = []
 
     for link in links:
         image_page = link[0]
         image_link = link[1]
 
-        if image_page not in downloaded and not image_page == '' and not image_page.isspace():
+        if image_page not in downloaded and image_page not in not_found and not image_page == '' and not image_page.isspace():
+
             not_downloaded.append((image_page, image_link))
 
     return not_downloaded
@@ -228,8 +241,11 @@ def main(take, skip):
     if not exists(DOWNLOADED_LIST_FILE_PATH):
         open(DOWNLOADED_LIST_FILE_PATH, "w+").close()
 
+    if not exists(IMAGE_NOT_FOUND_FILE_PATH):
+        open(IMAGE_NOT_FOUND_FILE_PATH, "w+").close()
+
     pages = get_image_pages(take, skip)
-    pages = exclude_downloaded(pages)
+    pages = exclude(pages)
     print("To download: " + str(len(pages)))
 
     print('')
@@ -246,7 +262,7 @@ def main(take, skip):
     # print('')
     # print('')
     # print('Exclude downloaded')
-    # links = exclude_downloaded_from_links(links)
+    # links = exclude_from_links(links)
     print('')
     print('')
     print('Downloading images:')
@@ -254,4 +270,4 @@ def main(take, skip):
 
     return
 
-main(0, 0)
+main(10, 0)
