@@ -99,3 +99,8 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+Images/
+loaded_links.json
+downloaded.txt
+image_not_found.txt
