@@ -9,10 +9,16 @@ from json import load, dumps
 from bs4 import BeautifulSoup
 from progressbar import ProgressBar
 
+from PIL import Image
+from PIL import ImageFont
+from PIL import ImageDraw
+
+from io import BytesIO
+
 MAIN_URL = 'https://apod.nasa.gov/apod/'
 MAIN_PAGE = 'archivepix.html'
 
-DOWNLOAD_PATH = 'Images/'
+DOWNLOAD_PATH = '/data/data/com.termux/files/home/storage/external-1/NasaImages/'
 DOWNLOADED_LIST_FILE_PATH = 'downloaded.txt'
 IMAGE_NOT_FOUND_FILE_PATH = 'image_not_found.txt'
 
@@ -58,17 +64,23 @@ def get_image_links(image_pages):
             parent = img.parent
             if parent.name == 'a':
                 parent_href = parent.get('href')
+                img_src = img.get('src')
+                found_image_here = False
 
                 if is_image_link(parent_href):
-                    image_links.append((page, parent_href))
                     found_image = True
-                    continue
+                    found_image_in_a = True
+                else:
+                    parent_href = None
 
-                img_src = img.get('src')
                 if is_image_link(img_src):
-                    image_links.append((page, img_src))
                     found_image = True
-                    continue
+                    found_image_in_a = True
+                else:
+                    img_src = None
+
+                if found_image_in_a:
+                    image_links.append((page, parent_href, img_src))
 
         if not found_image:
             image_not_found_file.write('\n')
@@ -96,22 +108,44 @@ def download_images(image_links):
 
     bar_progress = 0
     for link in image_links:
-        image_page = link[0]
-        image_link = link[1]
-        image_name = image_link[image_link.rfind('/') + 1:]
+        page, href, src = link
 
-        path = DOWNLOAD_PATH + image_name
-        if OVERWRITE_EXISTING or not exists(path):
-            download_request(MAIN_URL + image_link, path)
+        downloaded = False
+
+        if href is not None:
+            downloaded = download_image(page, href)
+
+        if src is not None and not downloaded:
+            downloaded = download_image(page, src)
 
         downloaded_list_file.write('\n')
-        downloaded_list_file.write(image_page)
+        downloaded_list_file.write(page)
         downloaded_list_file.flush()
         bar_progress += 1
         progressbar.update(bar_progress)
 
     downloaded_list_file.close()
 
+def download_image(page, link):
+    image_name = link[link.rfind('/') + 1 : -1 * (len(link) - link.rfind('.') - 1)] + "png"
+
+    path = DOWNLOAD_PATH + image_name
+    if not OVERWRITE_EXISTING and exists(path):
+        return True
+
+    image_req = get_request(MAIN_URL + link)
+    if image_req == False:
+        return false
+
+    imageBytes = BytesIO(image_req)
+
+    img = Image.open(imageBytes)
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype("Roboto-Black.ttf", 16)
+    draw.text((0, 0), page, (255,255,255), font=font)
+    img.save(path, "PNG")
+
+    return True
 
 def get_downloaded():
     downloaded_list_file = open(DOWNLOADED_LIST_FILE_PATH, "r")
@@ -151,12 +185,10 @@ def exclude_from_links(links):
     not_downloaded = []
 
     for link in links:
-        image_page = link[0]
-        image_link = link[1]
+        page, _, _ = link;
 
-        if image_page not in downloaded and image_page not in not_found and not image_page == '' and not image_page.isspace():
-
-            not_downloaded.append((image_page, image_link))
+        if page not in downloaded and page not in not_found and not page == '' and not page.isspace():
+            not_downloaded.append(link)
 
     return not_downloaded
 
@@ -177,7 +209,9 @@ def get_request(url):
 
             return urlopen(url).read()
         except URLError as ex:
-            if retry < REQUEST_REPEAT_COUNT:
+            if ex.reason == "Not found":
+                return False
+            elif retry < REQUEST_REPEAT_COUNT:
                 retry += 1
                 sleep_time *= 2
                 print('Download retry num. ' + str(retry))
@@ -198,9 +232,10 @@ def download_request(url, path):
     while True:
         try:
             urlretrieve(url, path)
+            break
         except URLError as ex:
             if ex.reason == "Not Found":
-                return
+                return False
             elif retry < REQUEST_REPEAT_COUNT:
                 retry += 1
                 sleep_time *= 2
@@ -213,6 +248,8 @@ def download_request(url, path):
                 sleep(sleep_time)
             else:
                 raise
+
+    return True
 
 
 def write_links_to_file(links):
@@ -234,7 +271,7 @@ def load_links_from_file():
     return links
 
 
-def main(take, skip):
+def main(take, skip, loaded):
     if not exists(DOWNLOAD_PATH):
         makedirs(DOWNLOAD_PATH)
 
@@ -244,25 +281,29 @@ def main(take, skip):
     if not exists(IMAGE_NOT_FOUND_FILE_PATH):
         open(IMAGE_NOT_FOUND_FILE_PATH, "w+").close()
 
-    pages = get_image_pages(take, skip)
-    pages = exclude(pages)
-    print("To download: " + str(len(pages)))
+    links = None
 
-    print('')
-    print("Getting image links:")
-    links = get_image_links(pages)
-    print('')
-    print('')
-    print('Writing links to file')
-    write_links_to_file(links)
+    if not loaded:
+        pages = get_image_pages(take, skip)
+        pages = exclude(pages)
+        print("To download: " + str(len(pages)))
 
-    # print('')
-    # print('Loading links from file')
-    # links = load_links_from_file()
-    # print('')
-    # print('')
-    # print('Exclude downloaded')
-    # links = exclude_from_links(links)
+        print('')
+        print("Getting image links:")
+        links = get_image_links(pages)
+        print('')
+        print('')
+        print('Writing links to file')
+        write_links_to_file(links)
+    else:
+        print('')
+        print('Loading links from file')
+        links = load_links_from_file()
+        print('')
+        print('')
+        print('Exclude downloaded')
+        links = exclude_from_links(links)
+
     print('')
     print('')
     print('Downloading images:')
@@ -270,4 +311,4 @@ def main(take, skip):
 
     return
 
-main(10, 0)
+main(1, 2, False)
