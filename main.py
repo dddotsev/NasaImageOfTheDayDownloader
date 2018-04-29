@@ -5,6 +5,7 @@ from urllib.request import urlopen
 from urllib.error import URLError
 from json import load, dumps
 from io import BytesIO
+import warnings
 
 from bs4 import BeautifulSoup
 from progressbar import ProgressBar
@@ -263,6 +264,9 @@ def load_links_from_file():
 
 
 def main():
+    warnings.simplefilter('ignore', Image.DecompressionBombWarning)
+    Image.MAX_IMAGE_PIXELS = 500000000
+
     if not exists(DOWNLOAD_PATH):
         makedirs(DOWNLOAD_PATH)
 
