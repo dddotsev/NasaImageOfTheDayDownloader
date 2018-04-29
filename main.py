@@ -19,6 +19,7 @@ MAIN_URL = 'https://apod.nasa.gov/apod/'
 MAIN_PAGE = 'archivepix.html'
 
 DOWNLOAD_PATH = '/data/data/com.termux/files/home/storage/external-1/NasaImages/'
+DOWNLOAD_PATH_UNMODIFIED = '/data/data/com.termux/files/home/storage/external-1/NasaImagesUnmodified/'
 DOWNLOADED_LIST_FILE_PATH = 'downloaded.txt'
 IMAGE_NOT_FOUND_FILE_PATH = 'image_not_found.txt'
 
@@ -28,8 +29,6 @@ IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'bmp', 'png', 'tiff', 'tif']
 
 REQUEST_REPEAT_COUNT = 15
 REQUEST_REPEAT_INITIAL_SECONDS = 5
-OVERWRITE_EXISTING = False
-
 
 def get_image_pages(take, skip):
     html = get_request(MAIN_URL + MAIN_PAGE)
@@ -130,9 +129,7 @@ def download_image(page, link):
     date = page[2:-5]
     image_name = date + link[-1 * (len(link) - link.rfind('.')):]
     path = DOWNLOAD_PATH + image_name
-
-    if not OVERWRITE_EXISTING and exists(path):
-        return True
+    path_unmodified = DOWNLOAD_PATH_UNMODIFIED + image_name
 
     image_req = get_request(MAIN_URL + link)
     if image_req == False:
@@ -142,6 +139,8 @@ def download_image(page, link):
     imageBytes = BytesIO(image_req)
 
     img = Image.open(imageBytes)
+    img.save(path_unmodified)
+
     draw = ImageDraw.Draw(img)
     font = ImageFont.truetype("Roboto-Black.ttf", 64)
     draw.text((0, 0), date, (255), font)
@@ -250,6 +249,9 @@ def main(take, skip, loaded):
     if not exists(DOWNLOAD_PATH):
         makedirs(DOWNLOAD_PATH)
 
+    if not exists(DOWNLOAD_PATH_UNMODIFIED):
+        makedirs(DOWNLOAD_PATH_UNMODIFIED)
+
     if not exists(DOWNLOADED_LIST_FILE_PATH):
         open(DOWNLOADED_LIST_FILE_PATH, "w+").close()
 
@@ -286,4 +288,4 @@ def main(take, skip, loaded):
 
     return
 
-main(10, 0, False)
+main(10, 10, False)
