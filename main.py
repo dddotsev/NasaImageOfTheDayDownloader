@@ -2,7 +2,7 @@ from os import makedirs
 from os.path import exists
 
 from time import sleep
-from urllib.request import urlopen, urlretrieve
+from urllib.request import urlopen
 from urllib.error import URLError
 from json import load, dumps
 
@@ -24,7 +24,7 @@ IMAGE_NOT_FOUND_FILE_PATH = 'image_not_found.txt'
 
 LOADED_IMAGE_LINKS_FILE_PATH = 'loaded_links.json'
 
-IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'bmp', 'png', 'tiff', 'tif', 'gif']
+IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'bmp', 'png', 'tiff', 'tif']
 
 REQUEST_REPEAT_COUNT = 15
 REQUEST_REPEAT_INITIAL_SECONDS = 5
@@ -127,23 +127,25 @@ def download_images(image_links):
     downloaded_list_file.close()
 
 def download_image(page, link):
-    image_name = link[link.rfind('/') + 1 : -1 * (len(link) - link.rfind('.') - 1)] + "png"
-
+    date = page[2:-5]
+    image_name = date + link[-1 * (len(link) - link.rfind('.')):]
     path = DOWNLOAD_PATH + image_name
+
     if not OVERWRITE_EXISTING and exists(path):
         return True
 
     image_req = get_request(MAIN_URL + link)
     if image_req == False:
-        return false
+        return False
+
 
     imageBytes = BytesIO(image_req)
 
     img = Image.open(imageBytes)
     draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype("Roboto-Black.ttf", 16)
-    draw.text((0, 0), page, (255,255,255), font=font)
-    img.save(path, "PNG")
+    font = ImageFont.truetype("Roboto-Black.ttf", 64)
+    draw.text((0, 0), date, (255), font)
+    img.save(path)
 
     return True
 
@@ -225,33 +227,6 @@ def get_request(url):
                 raise
 
 
-def download_request(url, path):
-    retry = 0
-    sleep_time = REQUEST_REPEAT_INITIAL_SECONDS
-
-    while True:
-        try:
-            urlretrieve(url, path)
-            break
-        except URLError as ex:
-            if ex.reason == "Not Found":
-                return False
-            elif retry < REQUEST_REPEAT_COUNT:
-                retry += 1
-                sleep_time *= 2
-                print('Download retry num. ' + str(retry))
-                print('Trying to download: ' + url)
-                print('Retry in ' + str(sleep_time) + 'seconds')
-                print(ex.args)
-                print(ex.strerror)
-                print(ex)
-                sleep(sleep_time)
-            else:
-                raise
-
-    return True
-
-
 def write_links_to_file(links):
     image_links_file = open(LOADED_IMAGE_LINKS_FILE_PATH, "w+")
 
@@ -311,4 +286,4 @@ def main(take, skip, loaded):
 
     return
 
-main(1, 2, False)
+main(10, 0, False)
